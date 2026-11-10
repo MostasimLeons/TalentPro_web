@@ -85,15 +85,14 @@
 		return window.innerWidth >= 1024;
 	}
 
+	function cssPx(name, fallback) {
+		var v = parseFloat(getComputedStyle(root).getPropertyValue(name));
+		return isNaN(v) ? fallback : v;
+	}
+
+	/** [vertical, horizontal] card padding; set per breakpoint in tp-3d-sections.css */
 	function panelPad() {
-		var w = window.innerWidth;
-		if (w >= 1024) {
-			// desktop side padding comes from --tp-card-pad-x (also used by the CSS text width)
-			var px = parseFloat(getComputedStyle(root).getPropertyValue('--tp-card-pad-x'));
-			return [36, isNaN(px) ? 40 : px];
-		}
-		// [vertical, horizontal]; mobile side pad stays < the theme's 15px gutter so the panel never touches the screen edge
-		return w < 768 ? [14, 11] : [26, 28];
+		return [cssPx('--tp-card-pad-y', 40), cssPx('--tp-card-pad-x', 40)];
 	}
 
 	function sizePanel(text, panel) {
@@ -128,12 +127,44 @@
 		if (!isFinite(minL) || !isFinite(minT)) return;
 
 		var p = panelPad();
-		panel.style.left = (minL - p[1]).toFixed(1) + 'px';
+		if (isDesktop()) {
+			// desktop: anchored to the text's left edge, width = --tp-card-width (CSS)
+			panel.style.left = (minL - p[1]).toFixed(1) + 'px';
+			panel.style.width = '';
+		} else {
+			// tablet/phone: full slide width minus the gutter (text is inset by CSS)
+			var gutter = cssPx('--tp-card-gutter', 16);
+			var slide = text.offsetParent || text.parentElement;
+			panel.style.left = (gutter - text.offsetLeft).toFixed(1) + 'px';
+			panel.style.width = Math.max(0, slide.clientWidth - gutter * 2).toFixed(1) + 'px';
+		}
 		panel.style.top = (minT - p[0]).toFixed(1) + 'px';
-		// desktop: width = --tp-card-width (CSS); smaller screens: hug the text
-		panel.style.width = isDesktop() ? '' : (maxR - minL + p[1] * 2).toFixed(1) + 'px';
 		panel.style.height = (maxB - minT + p[0] * 2).toFixed(1) + 'px';
 		panel.classList.add('is-sized');
+	}
+
+	/**
+	 * Autoplay progress line on the active 01/02/03 button (CSS animation).
+	 * Kept in step with the theme's timer, read-only: the theme pauses autoplay
+	 * while focus is inside the carousel and restarts its 6s timer on every
+	 * button click, so the line is hidden/restarted at the same moments.
+	 */
+	function setupProgress(carousel) {
+		if (reduceMQ.matches) return;          // the theme has no autoplay then
+		var on = function () { carousel.classList.add('tp3d-progress'); };
+		var restart = function () {
+			carousel.classList.remove('tp3d-progress');
+			void carousel.offsetWidth;            // reflow so the animation starts over
+			if (!carousel.contains(document.activeElement)) on();
+		};
+		on();
+		carousel.addEventListener('focusin', function () { carousel.classList.remove('tp3d-progress'); });
+		carousel.addEventListener('focusout', function (e) {
+			if (!carousel.contains(e.relatedTarget)) restart();
+		});
+		carousel.addEventListener('click', function (e) {
+			if (e.target.closest('.wd-step, .wd-dot, .wd-prev, .wd-next')) setTimeout(restart, 0);
+		});
 	}
 
 	function setupWhatDrives() {
@@ -166,6 +197,7 @@
 			window.addEventListener('resize', resizeAll);
 		}
 
+		setupProgress(carousel);
 		log('what-drives panels:', pairs.length);
 		return { carousel: carousel, pairs: pairs };
 	}
@@ -193,7 +225,7 @@
 				wd.pairs.forEach(function (p) {
 					if (p.slide !== m.target) return;
 					gsap.fromTo(p.panel, { opacity: 0, y: 16 }, {
-						opacity: 1, y: 0, duration: 0.8, delay: 0.1, ease: 'power3.out',
+						opacity: 1, y: 0, duration: 0.5, delay: 0.05, ease: 'power3.out',
 						clearProps: 'transform,opacity', overwrite: true
 					});
 				});

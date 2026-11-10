@@ -16,37 +16,45 @@
 	/* Max card tilt in degrees. 0 = off, 6–8 = subtle (default 7), 12+ = strong. */
 	--tp-tilt-max: 7;
 
-	/* ---- "What Drives" slides ---- */
+	/* ---- "What Drives" slides ---------------------------------------- */
 	/* Card width on desktop (>= 1024px), measured from the card's left edge.
 	   The slide is full width, so 58vw = 58% of the section. Lower it to show
-	   more video; the headline and paragraph wrap to fit inside. */
+	   more video; the headline wraps to fit inside. Tablet/phone: full width. */
 	--tp-card-width: 58vw;
-	--tp-card-pad-x: 40px;             /* inner side padding of the card on desktop */
+	--tp-card-pad-x: 48px;             /* inner side padding (desktop; smaller below) */
+	--tp-card-pad-y: 44px;             /* inner top/bottom padding */
+	--tp-card-gutter: 16px;            /* tablet/phone: space between card and screen edge */
+	--tp-card-radius: 22px;
 
-	/* Glass blur behind the card text. Higher = frostier (and more GPU work, it
-	   blurs the playing video). 0px = no blur. */
+	/* Glass blur behind the card. Higher = frostier (and more GPU work, it blurs
+	   the playing video). 0px = no blur. */
 	--tp-card-blur: 6px;
 	--tp-card-blur-mobile: 6px;
 
-	/* Card fill. A cool, see-through tint: raise the last value (alpha) for more
-	   legibility, lower it to see more video.
-	   Contrast was measured on every video frame (0.5 s steps, brightest pixel
-	   behind each text line). With overlay .70, .50 is the lowest tint that
-	   keeps ALL card text >= 4.5:1 (.52 adds a small margin). At .35 the paragraph drops to ~2.9:1 on
-	   slides 1 and 3. */
-	--tp-card-tint: rgba(11, 21, 32, .52);
-	/* Same, for screens >= 1540px. The video is scaled up there, so a brighter
-	   patch lands behind the headline on slide 1; .57 is the lowest that passes. */
-	--tp-card-tint-wide: rgba(11, 21, 32, .57);
+	/* Card fill: cool, see-through tint. Raise the alpha (last value) for more
+	   legibility, lower it to see more video. Contrast was measured on every
+	   video frame (0.5 s steps, brightest pixel behind each text line) at
+	   375/768/1024/1280/1440/1920px: with .35 tint + .70 overlay all card text
+	   is >= 4.5:1. Lowering either value can drop slide 1 and 3 below 4.5:1. */
+	--tp-card-tint: rgba(11, 21, 32, .35);
+	--tp-card-tint-wide: rgba(11, 21, 32, .35);   /* screens >= 1540px (bigger video) */
 
 	/* Soft dark gradient on the video, only behind the card (0 = none, 1 = strong);
-	   it fades out shortly after the card's right edge. Works together with the
-	   tint above: lowering either one drops contrast below 4.5:1. */
+	   it fades out shortly after the card's right edge. */
 	--tp-overlay-strength: .70;
+
+	/* Headline: weight and size relative to the theme's size at each breakpoint
+	   (85 / 71.5 / 48 / 32px were already reduced to 68 / 57 / 48 / 32px). */
+	--tp-headline-weight: 600;
+	--tp-headline-scale: .85;          /* 1 = previous size, .85 = 15% smaller */
+
+	/* Autoplay length of the theme's slider (app.js: 6000ms). The progress line on
+	   the active 01/02/03 button fills over this time. */
+	--tp-autoplay: 6s;
 
 	/* Thin light edge on all glass cards. Raise the alpha (e.g. .35) for a
 	   brighter edge, lower it (e.g. .10) for a fainter one. */
-	--tp-card-border: 1px solid rgba(255, 255, 255, .22);
+	--tp-card-border: 1px solid rgba(255, 255, 255, .14);
 
 	/* Cursor reflection strength (0 – 1) on dark and on light cards. */
 	--tp-glare-dark: .30;
@@ -57,12 +65,14 @@
 }
 
 /* ======================================================================
-   1. WHAT DRIVES – glass panel
-   The panel is injected as the LAST child of each .wd-text and sized by JS to
-   hug the text, padded outward with negative offsets so the text does not move.
+   1. WHAT DRIVES – premium glass card, typography, controls
+   The card (.tp3d-wd-glass) is injected as the LAST child of each .wd-text and
+   positioned by JS around the text; it never changes layout. Typography and
+   control styling below only restyle existing elements.
    ====================================================================== */
 .tp3d-wd .wd-text {
-	z-index: 0;                       /* own stacking context: panel sits behind the text */
+	z-index: 0;                       /* own stacking context: card sits behind the text */
+	--tp-h3-base: 32px;               /* theme size per breakpoint (set below) */
 }
 
 .tp3d-wd-glass {
@@ -73,16 +83,17 @@
 	width: 0;
 	height: 0;
 	pointer-events: none;
-	border-radius: 22px;
+	border-radius: var(--tp-card-radius);
 	border: var(--tp-card-border);
 	background:
-		linear-gradient(180deg, rgba(255, 255, 255, .07) 0%, rgba(255, 255, 255, 0) 35%),
+		linear-gradient(180deg, rgba(255, 255, 255, .06) 0%, rgba(255, 255, 255, 0) 30%),
 		var(--tp-card-tint);
 	-webkit-backdrop-filter: blur(var(--tp-card-blur)) saturate(1.1);
 	        backdrop-filter: blur(var(--tp-card-blur)) saturate(1.1);
 	box-shadow:
-		0 24px 50px -30px rgba(0, 0, 0, .45),
-		inset 0 1px 0 rgba(255, 255, 255, .16);
+		0 30px 60px -32px rgba(0, 0, 0, .50),
+		0 2px 6px -2px rgba(0, 0, 0, .18),
+		inset 0 1px 0 rgba(255, 255, 255, .18);   /* faint top inner highlight */
 	opacity: 0;                        /* shown once JS has measured it */
 }
 
@@ -90,8 +101,7 @@
 	opacity: 1;
 }
 
-/* Video overlay: the theme's heavy teal gradient becomes a light, cool one that
-   only darkens the area behind the card. */
+/* Video overlay: light, cool, only darkens the area behind the card. */
 .tp3d-wd .wd-slide > div[aria-hidden="true"] {
 	background: linear-gradient(90deg,
 		rgba(11, 21, 32, calc(.85 * var(--tp-overlay-strength))) 0%,
@@ -99,25 +109,215 @@
 		rgba(11, 21, 32, 0) calc(var(--tp-card-width) + 12vw));
 }
 
-/* Readability over bright frames (very soft, no visible halo) */
+/* ---- Eyebrow + "01 — …" line ---- */
+.tp3d-wd .wd-text > div:first-child {
+	padding-left: 0;                   /* the accent bar is removed, so no indent */
+}
+
+.tp3d-wd .wd-text > div:first-child > span[aria-hidden="true"] {
+	display: none;                     /* blue vertical bar */
+}
+
+.tp3d-wd .wd-text > div:first-child > p:first-of-type {
+	font-size: 12px;
+	font-weight: 700;
+	line-height: 1.4;
+	letter-spacing: .18em;
+	text-transform: uppercase;
+	color: rgba(255, 255, 255, .88);   /* .80 measured 4.49:1 on phones (slide 1) */
+}
+
+.tp3d-wd .wd-text > div:first-child > p:nth-of-type(2) {
+	margin-top: 10px;
+	font-size: 20px;
+	line-height: 1.4;
+	letter-spacing: .005em;
+	color: rgba(255, 255, 255, .88);   /* muted white, one weight (.80 measured 4.4:1 on phones) */
+}
+
+.tp3d-wd .wd-text > div:first-child > p:nth-of-type(2),
+.tp3d-wd .wd-text > div:first-child > p:nth-of-type(2) span {
+	font-weight: 500;
+}
+
+.tp3d-wd .wd-text > div:first-child > p:nth-of-type(2) span {
+	font-size: inherit;
+	color: inherit;
+}
+
+/* ---- Headline ---- */
 .tp3d-wd .wd-text > h3 {
-	text-shadow: 0 1px 2px rgba(0, 0, 0, .28), 0 4px 22px rgba(0, 0, 0, .22);
+	margin-top: 22px;
+	font-size: calc(var(--tp-h3-base) * var(--tp-headline-scale));
+	font-weight: var(--tp-headline-weight);
+	line-height: 1.15;
+	letter-spacing: -.02em;
+	text-wrap: balance;
+	text-shadow: 0 1px 2px rgba(0, 0, 0, .25), 0 4px 22px rgba(0, 0, 0, .20);
 }
 
-.tp3d-wd .wd-text > :not(h3):not(.tp3d-wd-glass) {
-	text-shadow: 0 1px 2px rgba(0, 0, 0, .30), 0 2px 12px rgba(0, 0, 0, .20);
+/* ---- Paragraph ---- */
+.tp3d-wd .wd-text > p {
+	margin-top: 14px;
+	color: rgba(255, 255, 255, .92);
+	text-shadow: 0 1px 2px rgba(0, 0, 0, .28), 0 2px 12px rgba(0, 0, 0, .18);
 }
 
-@media (min-width: 1024px) {
-	/* card: fixed share of the slide, anchored left (JS sets left/top/height) */
-	.tp3d-wd-glass {
-		width: var(--tp-card-width);
+.tp3d-wd .wd-text > div:first-child p {
+	text-shadow: 0 1px 2px rgba(0, 0, 0, .28);
+}
+
+/* ---- Primary button ---- */
+.tp3d-wd .wd-text > a {
+	gap: 10px;
+	margin-top: 28px;
+	padding: 14px 24px 14px 26px;
+	border-color: transparent;
+	background-color: var(--tp-accent-ui, #0077b6);
+	color: #fff;
+	font-weight: 700;
+	box-shadow: 0 10px 24px -12px rgba(0, 119, 182, .75);
+	transition: background-color .2s ease, translate .2s ease, box-shadow .2s ease;
+}
+
+.tp3d-wd .wd-text > a::after {
+	content: "";
+	flex: none;
+	width: 16px;
+	height: 16px;
+	background-color: currentColor;
+	-webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h14M13 6l6 6-6 6'/%3E%3C/svg%3E") center / contain no-repeat;
+	        mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h14M13 6l6 6-6 6'/%3E%3C/svg%3E") center / contain no-repeat;
+	transition: transform .2s ease;
+}
+
+.tp3d-wd .wd-text > a:hover {
+	background-color: var(--tp-accent-ui-hover, #00669c);
+	color: #fff;
+	translate: 0 -2px;                 /* lift (separate from the slide-in transform) */
+	box-shadow: 0 14px 28px -12px rgba(0, 102, 156, .8);
+}
+
+.tp3d-wd .wd-text > a:hover::after {
+	transform: translateX(3px);
+}
+
+.tp3d-wd .wd-text > a:focus-visible {
+	outline: 2px solid var(--tp-accent, #00adee);
+	outline-offset: 3px;
+}
+
+/* ---- Right-side 01/02/03 navigation (theme shows it from 1350px up) ---- */
+.tp3d-wd .wd-step {
+	width: 38px;
+	height: 38px;
+	border: 1px solid rgba(255, 255, 255, .22);
+	background: rgba(11, 21, 32, .55);
+	-webkit-backdrop-filter: blur(6px);
+	        backdrop-filter: blur(6px);
+	box-shadow: 0 6px 18px -8px rgba(0, 0, 0, .55);
+	color: #fff;
+	font-size: 13px;
+	font-weight: 600;
+	letter-spacing: .06em;
+	overflow: visible;
+}
+
+.tp3d-wd .wd-step[data-active=true] {
+	border-color: var(--tp-accent-ui, #0077b6);
+	background: var(--tp-accent-ui, #0077b6);
+}
+
+.tp3d-wd .wd-step:focus-visible {
+	outline: 2px solid var(--tp-accent, #00adee);
+	outline-offset: 3px;
+}
+
+/* thin progress line that fills over the autoplay time (transform only) */
+.tp3d-wd.tp3d-progress .wd-step[data-active=true]::after {
+	content: "";
+	position: absolute;
+	left: 50%;
+	bottom: 7px;
+	width: 14px;
+	height: 2px;
+	margin-left: -7px;
+	border-radius: 2px;
+	background: rgba(255, 255, 255, .9);
+	transform-origin: 0 50%;
+	animation: tp3d-wd-progress var(--tp-autoplay) linear both;
+}
+
+@keyframes tp3d-wd-progress {
+	from { transform: scaleX(0); }
+	to   { transform: scaleX(1); }
+}
+
+/* ---- Bottom dots: kept (screen readers, keyboard) but very subtle ---- */
+.tp3d-wd .wd-dot {
+	width: 6px;
+	height: 6px;
+	border-color: rgba(255, 255, 255, .5);
+	opacity: .45;
+}
+
+.tp3d-wd .wd-dot[data-active=true] {
+	width: 6px;
+	height: 6px;
+	background: rgba(255, 255, 255, .85);
+	opacity: .7;
+}
+
+.tp3d-wd .wd-dot:focus-visible,
+.tp3d-wd .wd-prev:focus-visible,
+.tp3d-wd .wd-next:focus-visible {
+	opacity: 1;
+	outline: 2px solid var(--tp-accent, #00adee);
+	outline-offset: 3px;
+}
+
+/* ---- Slide change: overlay crossfade + staggered content (500ms) ----
+   Replaces the theme's 800ms text animation for this section only. */
+@media (prefers-reduced-motion: no-preference) {
+	.tp3d-wd.wd-changed .wd-slide[data-active=true] .wd-text > :is(div:first-child, h3, p, a) {
+		animation: tp3d-wd-in .5s cubic-bezier(.22, 1, .36, 1) .12s backwards;
 	}
 
-	/* headline wraps inside the card (the paragraph keeps the theme's 420px) */
+	.tp3d-wd.wd-changed .wd-slide[data-active=true] .wd-text > h3 { animation-delay: .19s; }
+	.tp3d-wd.wd-changed .wd-slide[data-active=true] .wd-text > p  { animation-delay: .26s; }
+	.tp3d-wd.wd-changed .wd-slide[data-active=true] .wd-text > a  { animation-delay: .33s; }
+
+	.tp3d-wd.wd-changed .wd-slide[data-active=true] > div[aria-hidden="true"] {
+		animation: tp3d-wd-veil .6s ease-out backwards;
+	}
+}
+
+@keyframes tp3d-wd-in {
+	from { opacity: 0; transform: translateY(14px); }
+}
+
+@keyframes tp3d-wd-veil {
+	from { opacity: .4; }
+}
+
+/* the card is faded by JS on slide change, never by the theme's animation */
+.wd-changed .wd-slide[data-active=true] .wd-text > .tp3d-wd-glass {
+	animation: none;
+}
+
+/* ---- Breakpoints ---- */
+@media (min-width: 1024px) {
+	.tp3d-wd-glass {
+		width: var(--tp-card-width);    /* anchored left; JS sets left/top/height */
+	}
+
 	.tp3d-wd .wd-text > h3 {
 		max-width: calc(var(--tp-card-width) - 2 * var(--tp-card-pad-x));
 	}
+}
+
+@media (min-width: 768px) {
+	.tp3d-wd .wd-text { --tp-h3-base: 48px; }
 }
 
 /* Video spans the whole slide on desktop as well (the theme already does this
@@ -128,42 +328,83 @@
 		width: 100%;
 	}
 
-	/* headline about 20% smaller: 71.5px -> 57px */
-	.tp3d-wd .wd-text > h3 {
-		font-size: 57px;
-	}
+	.tp3d-wd .wd-text { --tp-h3-base: 57px; }
 }
 
 @media (min-width: 1540px) {
-	/* 85px -> 68px */
-	.tp3d-wd .wd-text > h3 {
-		font-size: 68px;
-	}
+	.tp3d-wd .wd-text { --tp-h3-base: 68px; }
 
 	.tp3d-wd-glass {
 		background:
-			linear-gradient(180deg, rgba(255, 255, 255, .07) 0%, rgba(255, 255, 255, 0) 35%),
+			linear-gradient(180deg, rgba(255, 255, 255, .06) 0%, rgba(255, 255, 255, 0) 30%),
 			var(--tp-card-tint-wide);
 	}
 }
 
-/* Tablet and phone: the text spans the slide, so use an even, light veil */
+/* Tablet and phone: full-width card, even light veil, text inset inside it */
 @media (max-width: 1023px) {
+	:root {
+		--tp-card-pad-x: 28px;
+		--tp-card-pad-y: 32px;
+	}
+
 	.tp3d-wd .wd-slide > div[aria-hidden="true"] {
 		background: rgba(11, 21, 32, calc(.75 * var(--tp-overlay-strength)));
 	}
-}
 
-/* the theme's slide-change text animation must not hit the panel; JS fades it */
-.wd-changed .wd-slide[data-active=true] .wd-text > .tp3d-wd-glass {
-	animation: none;
+	.tp3d-wd .wd-text {
+		max-width: none;
+		margin-left: 0;
+		margin-right: 0;
+		padding-left: calc(var(--tp-card-gutter) + var(--tp-card-pad-x));
+		padding-right: calc(var(--tp-card-gutter) + var(--tp-card-pad-x));
+	}
 }
 
 @media (max-width: 767px) {
+	:root {
+		--tp-card-pad-x: 20px;
+		--tp-card-pad-y: 24px;
+		--tp-card-gutter: 12px;
+	}
+
 	.tp3d-wd-glass {
-		border-radius: 16px;
+		border-radius: 18px;
 		-webkit-backdrop-filter: blur(var(--tp-card-blur-mobile)) saturate(1.1);
 		        backdrop-filter: blur(var(--tp-card-blur-mobile)) saturate(1.1);
+	}
+
+	.tp3d-wd .wd-text > div:first-child > p:first-of-type {
+		font-size: 11px;
+	}
+
+	.tp3d-wd .wd-text > div:first-child > p:nth-of-type(2) {
+		margin-top: 6px;
+		font-size: 15px;
+	}
+
+	.tp3d-wd .wd-text > h3 {
+		margin-top: 14px;
+	}
+
+	.tp3d-wd .wd-text > a {
+		margin-top: 22px;
+		padding: 12px 20px 12px 22px;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.tp3d-wd .wd-text > a,
+	.tp3d-wd .wd-text > a::after {
+		transition: none;
+	}
+
+	.tp3d-wd .wd-text > a:hover {
+		translate: none;
+	}
+
+	.tp3d-wd .wd-step::after {
+		display: none;
 	}
 }
 
