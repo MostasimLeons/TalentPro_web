@@ -75,12 +75,43 @@ function tp3d_enqueue_hero_assets() {
 		'window.TP3D=' . wp_json_encode(
 			array(
 				'threeUrl' => $base . 'vendor/three-tp3d.min.js?ver=r170',
+				'gsapUrl'  => $base . 'vendor/gsap.min.js?ver=3.12.5',
+				'stUrl'    => $base . 'vendor/ScrollTrigger.min.js?ver=3.12.5',
 			)
 		) . ';',
 		'before'
 	);
 }
 add_action( 'wp_enqueue_scripts', 'tp3d_enqueue_hero_assets', 20 );
+
+/**
+ * Phase 2 – "What Drives" glass panels, service + numbered card tilt (front page only).
+ * GSAP + ScrollTrigger are NOT enqueued: tp-3d-sections.js injects them after
+ * page load (URLs from window.TP3D above), and never on reduced motion.
+ */
+function tp3d_enqueue_sections_assets() {
+	if ( ! is_front_page() ) {
+		return;
+	}
+
+	$base = get_template_directory_uri() . '/assets/tp3d/';
+
+	wp_enqueue_style(
+		'tp3d-sections',
+		$base . 'css/tp-3d-sections.css',
+		array( 'tp3d-colors' ),
+		tp3d_asset_ver( 'assets/tp3d/css/tp-3d-sections.css' )
+	);
+
+	wp_enqueue_script(
+		'tp3d-sections',
+		$base . 'js/tp-3d-sections.js',
+		array( 'tp3d-hero' ),
+		tp3d_asset_ver( 'assets/tp3d/js/tp-3d-sections.js' ),
+		true
+	);
+}
+add_action( 'wp_enqueue_scripts', 'tp3d_enqueue_sections_assets', 20 );
 
 /**
  * Mark the 3D scripts so common optimisation plugins leave them alone

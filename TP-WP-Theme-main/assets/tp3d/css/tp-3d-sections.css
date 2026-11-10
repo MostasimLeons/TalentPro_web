@@ -1,0 +1,173 @@
+/*
+ * TalentPro 3D layer – Phase 2: glass cards + tilt
+ *   1. "What Drives The Way We Build?" slides  -> glass panel behind the text
+ *   2. "Solve. Build. Operate." service cards  -> glass edge, 3D tilt, cursor reflection
+ *   3. "Building Something New…" numbered cards -> same card style + number contrast fix
+ *
+ * Design-only. All decoration is absolutely positioned (never changes layout)
+ * and every rule targets classes that tp-3d-sections.js adds, except the number
+ * contrast fix (section 3a), which is pure CSS.
+ */
+
+/* ======================================================================
+   STRENGTH CONTROLS – raise or lower these to taste
+   ====================================================================== */
+:root {
+	/* Max card tilt in degrees. 0 = off, 6–8 = subtle (default 7), 12+ = strong. */
+	--tp-tilt-max: 7;
+
+	/* Glass blur behind the "What Drives" text panel. Higher = frostier and more
+	   GPU work (it blurs the playing video). 0px = no blur. */
+	--tp-card-blur: 14px;
+	--tp-card-blur-mobile: 6px;
+
+	/* Thin light edge on all glass cards. Raise the alpha (e.g. .35) for a
+	   brighter edge, lower it (e.g. .10) for a fainter one. */
+	--tp-card-border: 1px solid rgba(255, 255, 255, .22);
+
+	/* Cursor reflection strength (0 – 1) on dark and on light cards. */
+	--tp-glare-dark: .30;
+	--tp-glare-light: .22;
+
+	/* Resting card shadow (hover keeps the theme's own bigger shadow). */
+	--tp-card-shadow: 0 14px 34px -18px rgba(16, 24, 24, .38);
+}
+
+/* ======================================================================
+   1. WHAT DRIVES – glass panel
+   The panel is injected as the LAST child of each .wd-text and sized by JS to
+   hug the text, padded outward with negative offsets so the text does not move.
+   ====================================================================== */
+.tp3d-wd .wd-text {
+	z-index: 0;                       /* own stacking context: panel sits behind the text */
+}
+
+.tp3d-wd-glass {
+	position: absolute;
+	z-index: -1;
+	left: 0;
+	top: 0;
+	width: 0;
+	height: 0;
+	pointer-events: none;
+	border-radius: 22px;
+	border: var(--tp-card-border);
+	background:
+		linear-gradient(180deg, rgba(255, 255, 255, .09) 0%, rgba(255, 255, 255, 0) 38%),
+		linear-gradient(100deg, rgba(16, 24, 24, .46) 0%, rgba(16, 24, 24, .30) 55%, rgba(16, 24, 24, .16) 100%);
+	-webkit-backdrop-filter: blur(var(--tp-card-blur)) saturate(1.15);
+	        backdrop-filter: blur(var(--tp-card-blur)) saturate(1.15);
+	box-shadow:
+		0 30px 60px -30px rgba(0, 0, 0, .55),
+		inset 0 1px 0 rgba(255, 255, 255, .14);
+	opacity: 0;                        /* shown once JS has measured it */
+}
+
+.tp3d-wd-glass.is-sized {
+	opacity: 1;
+}
+
+/* the theme's slide-change text animation must not hit the panel; JS fades it */
+.wd-changed .wd-slide[data-active=true] .wd-text > .tp3d-wd-glass {
+	animation: none;
+}
+
+@media (max-width: 767px) {
+	.tp3d-wd-glass {
+		border-radius: 16px;
+		-webkit-backdrop-filter: blur(var(--tp-card-blur-mobile)) saturate(1.1);
+		        backdrop-filter: blur(var(--tp-card-blur-mobile)) saturate(1.1);
+	}
+}
+
+/* ======================================================================
+   2 + 3. CARDS – shared glass edge, reflection, tilt
+   ====================================================================== */
+.tp3d-tilt-group {
+	perspective: 1100px;               /* depth for the tilt; no layout effect */
+}
+
+.tp3d-card {
+	position: relative;                /* anchor for the overlay (no layout effect) */
+	-webkit-backface-visibility: hidden;
+	        backface-visibility: hidden;
+}
+
+.tp3d-card:not(:hover):not([data-open=true]) {
+	box-shadow: var(--tp-card-shadow);
+}
+
+/* overlay: thin light edge + top sheen + moving reflection */
+.tp3d-card__fx {
+	position: absolute;
+	inset: 0;
+	z-index: 2;
+	border-radius: inherit;
+	overflow: hidden;
+	pointer-events: none;
+	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .22), inset 0 1px 0 rgba(255, 255, 255, .30);
+	background: linear-gradient(180deg, rgba(255, 255, 255, .10) 0%, rgba(255, 255, 255, 0) 42%);
+}
+
+.tp3d-card__glare {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 160%;
+	aspect-ratio: 1;
+	margin: -80% 0 0 -80%;             /* centre the gradient on its transform origin */
+	border-radius: 50%;
+	background: radial-gradient(circle, rgba(255, 255, 255, var(--tp-glare-dark)) 0%, rgba(255, 255, 255, 0) 58%);
+	opacity: 0;
+	transition: opacity .45s ease;
+	will-change: transform, opacity;
+}
+
+.tp3d-card.is-tilting .tp3d-card__glare {
+	opacity: 1;
+}
+
+/* Service cards: the theme's .hover-lift also transitions opacity/transform,
+   which these cards never use (their reveal is a clip-path "bloom"). Removing
+   them lets GSAP drive the scroll-in without a CSS transition fighting it. */
+.tp3d-svc {
+	transition-property: translate, box-shadow;
+}
+
+/* Light numbered cards: tinted reflection and a softer edge */
+.tp3d-ns .tp3d-card__fx {
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9);
+	background: linear-gradient(180deg, rgba(255, 255, 255, .35) 0%, rgba(255, 255, 255, 0) 40%);
+}
+
+.tp3d-ns .tp3d-card__glare {
+	background: radial-gradient(circle, color-mix(in srgb, var(--tp-accent, #00adee) calc(var(--tp-glare-light) * 100%), transparent) 0%, transparent 58%);
+}
+
+/* ----------------------------------------------------------------------
+   3a. Number contrast fix (no JS needed)
+   #0077B6 on the light-gray end of the card measured ~4.0:1. #00669C (the
+   theme's own hover blue) measures ~5.2:1 on #E6EBEA and ~6.2:1 on white.
+   ---------------------------------------------------------------------- */
+[data-ns-item] [data-ns-header] > p:first-child {
+	color: var(--tp-accent-ui-hover, #00669c);
+}
+
+/* ======================================================================
+   Touch, mobile and reduced motion
+   ====================================================================== */
+@media (hover: none), (pointer: coarse) {
+	.tp3d-card__glare {
+		display: none;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.tp3d-card__glare {
+		display: none;
+	}
+
+	.tp3d-card {
+		rotate: none !important;
+	}
+}
