@@ -6,6 +6,8 @@
  *                              and slide switching are untouched (read-only observer).
  *   2. Service cards        : glass edge, 3D tilt + cursor reflection, staggered rise.
  *   3. Numbered cards       : same glass edge + tilt (the theme already reveals them).
+ *   4. Six Areas grid       : premium card layer, gentle resting tilt toward the
+ *                              centre, cursor reflection, staggered scroll-in (Phase 3).
  *
  * Tilt uses the CSS `rotate` property and scroll-in uses `transform`/`opacity`,
  * so neither collides with the theme's hover lift (`translate`) or its reveals.
@@ -323,13 +325,136 @@
 	}
 
 	/* ==================================================================
+	   4. SIX AREAS – resting tilt toward the centre, cursor reflection,
+	      staggered scroll-in. Hover lift/glow itself is pure CSS.
+	   ================================================================== */
+	function cssNum(name, fallback) {
+		var v = parseFloat(getComputedStyle(root).getPropertyValue(name));
+		return isNaN(v) ? fallback : v;
+	}
+
+	/** page position from layout offsets (ignores transforms and tilt) */
+	function layoutPos(el) {
+		var x = 0, y = 0;
+		for (; el; el = el.offsetParent) { x += el.offsetLeft; y += el.offsetTop; }
+		return [x, y];
+	}
+
+	function setupSixAreas() {
+		var tiles = [].slice.call(document.querySelectorAll('a[data-reveal="tile"]'));
+		if (!tiles.length) return null;
+
+		// smallest ancestor holding every card = the grid
+		var grid = tiles[0].parentElement;
+		while (grid && !tiles.every(function (t) { return grid.contains(t); })) grid = grid.parentElement;
+		if (!grid) return null;
+		grid.classList.add('tp3d-sa-grid');
+
+		tiles.forEach(function (t) {
+			t.classList.add('tp3d-sa');
+			for (var p = t.parentElement; p && p !== grid; p = p.parentElement) p.classList.add('tp3d-sa-wrap');
+
+			// Decorative layer, inserted BEFORE the text block so the theme's
+			// `>:last-child` (text) reveal selectors still match the same element.
+			var fx = document.createElement('span');
+			fx.className = 'tp3d-sa__fx';
+			fx.setAttribute('aria-hidden', 'true');
+			var glare = document.createElement('span');
+			glare.className = 'tp3d-sa__glare';
+			fx.appendChild(glare);
+			t.insertBefore(fx, t.lastElementChild);
+
+			// Cursor reflection (mouse only)
+			var rect = null;
+			t.addEventListener('pointerenter', function (e) {
+				if (!fineMQ.matches || reduceMQ.matches || (e.pointerType && e.pointerType !== 'mouse')) return;
+				rect = t.getBoundingClientRect();
+				t.classList.add('is-lit');
+			});
+			t.addEventListener('pointermove', function (e) {
+				if (!rect) return;
+				glare.style.transform = 'translate3d(' + (e.clientX - rect.left).toFixed(1) + 'px,' +
+					(e.clientY - rect.top).toFixed(1) + 'px,0)';
+			});
+			t.addEventListener('pointerleave', function () {
+				rect = null;
+				t.classList.remove('is-lit');
+			});
+		});
+
+		// Resting tilt: each card turns a little toward the grid centre.
+		// Uses layout offsets (unaffected by transforms) – no layout reads in a loop
+		// of writes, and only on load/resize.
+		function place() {
+			var on = fineMQ.matches && !reduceMQ.matches && window.innerWidth >= 768;
+			grid.classList.toggle('tp3d-sa-3d', on);
+			if (!on) return;
+			var max = cssNum('--tp-grid-tilt', 2.5);
+			var g = layoutPos(grid);
+			var gx = g[0] + grid.offsetWidth / 2, gy = g[1] + grid.offsetHeight / 2;
+			var vals = tiles.map(function (t) {
+				var p = layoutPos(t);
+				var nx = (p[0] + t.offsetWidth / 2 - gx) / (grid.offsetWidth / 2);
+				var ny = (p[1] + t.offsetHeight / 2 - gy) / (grid.offsetHeight / 2);
+				var rx = ny * max * 0.7;             // top row looks down, bottom row looks up
+				var ry = -nx * max;                  // left column looks right, right looks left
+				var a = Math.sqrt(rx * rx + ry * ry);
+				return a < 0.01 ? [0, 1, 0] : [rx / a, ry / a, a];
+			});
+			// every card leans by 75–100% of --tp-grid-tilt (outer cards the most)
+			var top = Math.max.apply(null, vals.map(function (v) { return v[2]; })) || 1;
+			vals.forEach(function (v) { if (v[2]) v[2] = max * (0.75 + 0.25 * v[2] / top); });
+			tiles.forEach(function (t, i) {
+				t.style.setProperty('--tp-sa-ax', vals[i][0].toFixed(3));
+				t.style.setProperty('--tp-sa-ay', vals[i][1].toFixed(3));
+				t.style.setProperty('--tp-sa-angle', vals[i][2].toFixed(2) + 'deg');
+			});
+		}
+		place();
+		var rt;
+		window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(place, 150); });
+		if (fineMQ.addEventListener) fineMQ.addEventListener('change', place);
+		if (document.fonts && document.fonts.ready) document.fonts.ready.then(place);
+
+		// Visual reading order: left → right, top → bottom.
+		var ordered = tiles.slice().sort(function (a, b) {
+			var pa = layoutPos(a), pb = layoutPos(b);
+			return Math.abs(pa[1] - pb[1]) > 8 ? pa[1] - pb[1] : pa[0] - pb[0];
+		});
+		// Line the theme's own photo-wipe delay up with the same order.
+		ordered.forEach(function (t, i) { t.style.setProperty('--reveal-delay', (i * 110) + 'ms'); });
+
+		log('six areas cards:', tiles.length);
+		return { grid: grid, tiles: ordered };
+	}
+
+	function animateSixAreas(sa) {
+		var gsap = window.gsap;
+		var hidden = sa.tiles.filter(belowFold);   // never hide a card already on screen
+		if (!hidden.length) return;
+		gsap.set(hidden, { opacity: 0, y: 44 });
+		window.ScrollTrigger.batch(hidden, {
+			start: 'top 90%',
+			once: true,
+			onEnter: function (batch) {
+				batch.sort(function (a, b) { return sa.tiles.indexOf(a) - sa.tiles.indexOf(b); });
+				gsap.to(batch, {
+					opacity: 1, y: 0, duration: 0.9, ease: 'power3.out', stagger: 0.11,
+					clearProps: 'transform,opacity'
+				});
+			}
+		});
+	}
+
+	/* ==================================================================
 	   Boot
 	   ================================================================== */
 	function init() {
 		var wd = setupWhatDrives();
 		var cards = setupCards();
+		var sa = setupSixAreas();
 
-		if (!wd && !cards.svc.length && !cards.ns.length) {
+		if (!wd && !sa && !cards.svc.length && !cards.ns.length) {
 			status('skipped:no-sections');
 			return;
 		}
@@ -343,6 +468,7 @@
 			loadGsap().then(function () {
 				if (wd) animateWhatDrives(wd);
 				animateCards(cards);
+				if (sa) animateSixAreas(sa);
 				window.ScrollTrigger.refresh();
 				log('GSAP', window.gsap.version, 'ready');
 				status(fineMQ.matches ? 'running' : 'running(touch: no tilt)');

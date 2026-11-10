@@ -3,6 +3,8 @@
  *   1. "What Drives The Way We Build?" slides  -> glass panel behind the text
  *   2. "Solve. Build. Operate." service cards  -> glass edge, 3D tilt, cursor reflection
  *   3. "Building Something New…" numbered cards -> same card style + number contrast fix
+ *   4. "Six Areas Of Technology Capability"     -> premium photo cards, gentle 3D grid
+ *                                                  (Phase 3)
  *
  * Design-only. All decoration is absolutely positioned (never changes layout)
  * and every rule targets classes that tp-3d-sections.js adds, except the number
@@ -62,6 +64,32 @@
 
 	/* Resting card shadow (hover keeps the theme's own bigger shadow). */
 	--tp-card-shadow: 0 14px 34px -18px rgba(16, 24, 24, .38);
+
+	/* ---- "Six Areas Of Technology Capability" grid (Phase 3) ---------- */
+	/* Resting tilt of each card toward the grid centre, in degrees.
+	   0 = flat, 2–3 = gentle (default 2.5), 5+ = clearly angled. Desktop mouse only. */
+	--tp-grid-tilt: 2.5;
+	/* How far a hovered/focused card comes toward the viewer (translateZ).
+	   0px = no lift, 20–30px = subtle (default 26px), 60px+ = strong. */
+	--tp-card-lift: 26px;
+	/* Strength of the soft #00ADEE glow around a hovered/focused card (0 – 1).
+	   The thin border line itself is always crisp; this only scales the halo. */
+	--tp-glow-opacity: .35;
+	/* Cursor reflection inside the hovered card (0 – 1). Keep it low. */
+	--tp-sa-glare: .10;               /* above ~.12 the brightest photo (Digital Transformation) drops below 4.5:1 on hover */
+	/* Card tint, same family as the "What Drives" card (.35). .40 here because at
+	   1920px the brightest photo (Digital Transformation) measured 4.45:1 under
+	   the headline with .35. On hover the theme zooms the photo and the reflection
+	   brightens it, so the tint deepens slightly to keep the text >= 4.5:1. */
+	--tp-sa-tint: rgba(11, 21, 32, .40);
+	--tp-sa-tint-hover: rgba(11, 21, 32, .50);
+	/* "Learn More" on these dark photo cards. The site link blue #0077B6 measures
+	   only 1.0–3.5:1 over the photos, so the text is near-white here and the
+	   arrow carries the #00ADEE accent (decorative, aria-hidden in the theme). */
+	--tp-sa-link: #f2f2f2;
+	/* Premium card shadow (same family as the "What Drives" card). */
+	--tp-sa-shadow: 0 18px 40px -22px rgba(11, 21, 32, .55), 0 2px 8px -2px rgba(11, 21, 32, .14);
+	--tp-sa-shadow-lift: 0 34px 60px -26px rgba(11, 21, 32, .55), 0 6px 18px -6px rgba(11, 21, 32, .18);
 }
 
 /* ======================================================================
@@ -482,6 +510,178 @@
 }
 
 /* ======================================================================
+   4. SIX AREAS OF TECHNOLOGY CAPABILITY – premium photo cards
+   Cards: the six a[data-reveal="tile"] links (only used in this section).
+   Grid:  the wrapper holding both columns (matched with :has() so the phone
+          layout applies before any JS runs = no layout shift).
+   JS adds: .tp3d-sa-grid / .tp3d-sa-wrap / .tp3d-sa (+ .tp3d-sa-3d on desktop
+   mouse) and one decorative .tp3d-sa__fx layer per card (absolute, aria-hidden).
+   ====================================================================== */
+a[data-reveal="tile"] {
+	border-radius: var(--tp-card-radius);
+	box-shadow: var(--tp-sa-shadow);
+	/* the theme's .hover-lift also transitions opacity/transform (with a reveal
+	   delay); GSAP drives those for the scroll-in, so only these transition */
+	transition-property: translate, rotate, box-shadow;
+	transition-duration: .6s;
+	transition-timing-function: cubic-bezier(.16, 1, .3, 1);
+	transition-delay: 0s;
+	-webkit-backface-visibility: hidden;
+	        backface-visibility: hidden;
+}
+
+/* Depth for the resting tilt: one perspective for the whole grid, so every
+   card leans toward the same centre point. */
+.tp3d-sa-grid {
+	perspective: 1600px;
+	perspective-origin: 50% 50%;
+}
+
+.tp3d-sa-wrap {
+	transform-style: preserve-3d;
+}
+
+/* Glass layer between the photo gradient and the text: tint, top sheen,
+   1px edge, inner highlight and the cursor reflection. Never above the text. */
+.tp3d-sa__fx {
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	overflow: hidden;
+	pointer-events: none;
+	background-color: var(--tp-sa-tint);
+	background-image: linear-gradient(180deg, rgba(255, 255, 255, .06) 0%, rgba(255, 255, 255, 0) 36%);
+	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14), inset 0 1px 0 rgba(255, 255, 255, .18);
+	transition: box-shadow .35s ease, background-color .35s ease;
+}
+
+.tp3d-sa__glare {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 150%;
+	aspect-ratio: 1;
+	margin: -75% 0 0 -75%;             /* centre the gradient on the cursor */
+	border-radius: 50%;
+	background: radial-gradient(circle, rgba(255, 255, 255, var(--tp-sa-glare)) 0%, rgba(255, 255, 255, 0) 55%);
+	opacity: 0;
+	transition: opacity .4s ease;
+	will-change: transform, opacity;
+}
+
+.tp3d-sa.is-lit .tp3d-sa__glare {
+	opacity: 1;
+}
+
+/* Resting tilt (desktop mouse, >= 768px). Axis + angle are set per card by JS. */
+.tp3d-sa-3d .tp3d-sa {
+	rotate: var(--tp-sa-ax, 0) var(--tp-sa-ay, 1) 0 var(--tp-sa-angle, 0deg);
+}
+
+/* Hover (mouse only) + keyboard focus: thin #00ADEE border with a soft glow */
+@media (hover: hover) and (pointer: fine) {
+	.tp3d-sa:hover {
+		box-shadow: var(--tp-sa-shadow-lift), 0 0 26px -4px rgba(0, 173, 238, var(--tp-glow-opacity));
+	}
+
+	.tp3d-sa:hover .tp3d-sa__fx {
+		background-color: var(--tp-sa-tint-hover);
+		box-shadow: inset 0 0 0 1px rgba(0, 173, 238, .9), inset 0 1px 0 rgba(255, 255, 255, .22);
+	}
+
+	/* lift toward the viewer and straighten to 0° */
+	.tp3d-sa-3d .tp3d-sa:hover {
+		rotate: var(--tp-sa-ax, 0) var(--tp-sa-ay, 1) 0 0deg;
+		translate: 0 -4px var(--tp-card-lift);
+	}
+}
+
+/* Focus ring sits on the white section background: #0077B6 = 4.87:1 there
+   (#00ADEE would be only ~2.6:1, below the 3:1 needed for focus indicators).
+   The #00ADEE border inside the card still appears, like on hover. */
+.tp3d-sa:focus-visible {
+	outline: 2px solid var(--tp-accent-ui, #0077b6);
+	outline-offset: 4px;
+	box-shadow: var(--tp-sa-shadow-lift), 0 0 26px -4px rgba(0, 173, 238, var(--tp-glow-opacity));
+}
+
+.tp3d-sa:focus-visible .tp3d-sa__fx {
+	background-color: var(--tp-sa-tint-hover);
+	box-shadow: inset 0 0 0 1px rgba(0, 173, 238, .9), inset 0 1px 0 rgba(255, 255, 255, .22);
+}
+
+.tp3d-sa-3d .tp3d-sa:focus-visible {
+	rotate: var(--tp-sa-ax, 0) var(--tp-sa-ay, 1) 0 0deg;
+	translate: 0 -4px var(--tp-card-lift);
+}
+
+/* "Learn More": readable text, blue accent arrow, underline on hover/focus */
+.tp3d-sa h3 + span {
+	color: var(--tp-sa-link);
+	text-decoration: underline 1px rgba(0, 173, 238, 0);
+	text-underline-offset: 4px;
+	transition: text-decoration-color .3s ease;
+}
+
+.tp3d-sa h3 + span > span {
+	color: var(--tp-accent, #00adee);
+}
+
+.tp3d-sa:is(:hover, :focus-visible) h3 + span {
+	text-decoration-color: var(--tp-accent, #00adee);
+}
+
+/* Below 1032px the cards are wider/flatter and the text reaches the brighter
+   middle of each photo (Interactive Technology's VR glow measured 4.07:1 at
+   .45), so the tint is deeper here: .50 on tablet (min 4.63:1 at 768px) and
+   .55 on phones (App Development's monitors: 4.12:1 at .50, 4.78:1 at .55). */
+@media (max-width: 1031px) {
+	:root {
+		--tp-sa-tint: rgba(11, 21, 32, .50);
+		--tp-sa-tint-hover: rgba(11, 21, 32, .60);
+	}
+}
+
+@media (max-width: 767px) {
+	:root {
+		--tp-sa-tint: rgba(11, 21, 32, .55);
+		--tp-sa-tint-hover: rgba(11, 21, 32, .65);
+	}
+}
+
+/* Tablet fix (768–1031px). The theme's two columns each need 2 × 220px square
+   cards + gap = 464px, but the grid is narrower here, so the cards overlapped
+   each other (pre-existing). Stack the two columns instead; squares use the
+   same 3:2 shape as on phones. Pure CSS, applies before any JS. */
+@media (min-width: 768px) and (max-width: 1031px) {
+	div:has(> div > a[data-reveal="tile"]):has(> div > div > a[data-reveal="tile"]) > div {
+		flex-basis: 100%;
+	}
+
+	a[data-reveal="tile"].aspect-\[263\/350\] {
+		aspect-ratio: 3 / 2;
+	}
+}
+
+/* Phone: single column, no horizontal overflow. Pure CSS (no JS needed). */
+@media (max-width: 767px) {
+	div:has(> div > a[data-reveal="tile"]):has(> div > div > a[data-reveal="tile"]) {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	a[data-reveal="tile"] {
+		grid-column: 1 / -1;
+		border-radius: 18px;
+	}
+
+	/* the theme's square tiles would be as tall as the screen is wide in one
+	   column; 3:2 keeps them in the same family as the wide 2:1 tiles */
+	a[data-reveal="tile"].aspect-\[263\/350\] {
+		aspect-ratio: 3 / 2;
+	}
+}
+
+/* ======================================================================
    Touch, mobile and reduced motion
    ====================================================================== */
 @media (hover: none), (pointer: coarse) {
@@ -497,5 +697,25 @@
 
 	.tp3d-card {
 		rotate: none !important;
+	}
+}
+
+/* Six Areas: touch = scroll-in only; reduced motion = no tilt, lift or reflection
+   (the border glow and focus outline still show, without movement). */
+@media (hover: none), (pointer: coarse) {
+	.tp3d-sa__glare {
+		display: none;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.tp3d-sa__glare {
+		display: none;
+	}
+
+	a[data-reveal="tile"] {
+		rotate: none !important;
+		translate: none !important;
+		transition-property: box-shadow;
 	}
 }
