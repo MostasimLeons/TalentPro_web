@@ -8,6 +8,7 @@
  *   3. Numbered cards       : same glass edge + tilt (the theme already reveals them).
  *   4. Six Areas grid       : premium card layer, gentle resting tilt toward the
  *                              centre, cursor reflection, staggered scroll-in (Phase 3).
+ *   5. Case Studies         : premium cards + 3D coverflow on >= 768px (Phase 4).
  *
  * Tilt uses the CSS `rotate` property and scroll-in uses `transform`/`opacity`,
  * so neither collides with the theme's hover lift (`translate`) or its reveals.
@@ -447,14 +448,284 @@
 	}
 
 	/* ==================================================================
+	   5. CASE STUDIES – 3D coverflow (>= 768px)
+	   The theme's own slider (app.js) only works on phones (scroll-snap).
+	   From 768px up this turns the stacked cards into a coverflow. All
+	   positions are CSS (tp-3d-sections.css, section 5) driven by two custom
+	   properties per card; this code only decides which card is active.
+	   Read-only towards the theme: its dots/counter are updated the same way
+	   app.js does, and if app.js changes the active dot we follow it.
+	   ================================================================== */
+	var ARROW = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+
+	function setupCases() {
+		var carousel = document.querySelector('[data-support-carousel]');
+		if (!carousel) return null;
+		var track = carousel.querySelector('[data-support-track]');
+		var cards = [].slice.call(carousel.querySelectorAll('[data-support-card]'));
+		var dots = [].slice.call(carousel.querySelectorAll('[data-support-dot]'));
+		var count = carousel.querySelector('[data-support-count]');
+		if (!track || cards.length < 2) return null;
+
+		var n = cards.length, active = 0, on = false, syncing = false;
+		var wideMQ = window.matchMedia('(min-width: 768px)');
+
+		// Accessibility: name the region (no visible text changes)
+		carousel.setAttribute('role', 'region');
+		carousel.setAttribute('aria-roledescription', 'carousel');
+		if (!carousel.hasAttribute('aria-label')) carousel.setAttribute('aria-label', 'Case studies');
+
+		// Arrow buttons, placed around the theme's dots + counter row
+		var controls = dots.length ? dots[0].parentElement.parentElement : null;
+		var prev = document.createElement('button');
+		var next = document.createElement('button');
+		[[prev, 'Previous case study', 'tp3d-cf-arrow--prev'], [next, 'Next case study', 'tp3d-cf-arrow--next']].forEach(function (b) {
+			b[0].type = 'button';
+			b[0].className = 'tp3d-cf-arrow ' + b[2];
+			b[0].setAttribute('aria-label', b[1]);
+			b[0].innerHTML = ARROW;
+		});
+		prev.querySelector('svg').style.transform = 'scaleX(-1)';
+		if (controls) {
+			controls.insertBefore(prev, controls.firstChild);
+			controls.appendChild(next);
+		}
+
+		// Per-card reflection layer + remembered tabindex of the card's links
+		cards.forEach(function (c) {
+			var fx = document.createElement('span');
+			fx.className = 'tp3d-cf-glare';
+			fx.setAttribute('aria-hidden', 'true');
+			fx.appendChild(document.createElement('span'));
+			c.appendChild(fx);
+		});
+
+		function offset(i, pos) {
+			var d = i - pos;
+			if (d > n / 2) d -= n;
+			if (d < -n / 2) d += n;
+			return d;
+		}
+
+		function paint(pos) {
+			cards.forEach(function (c, i) {
+				var d = offset(i, pos);
+				c.style.setProperty('--cf-d', d.toFixed(4));
+				c.style.setProperty('--cf-ad', Math.abs(d).toFixed(4));
+				c.style.zIndex = String(100 - Math.round(Math.abs(d) * 10));
+			});
+		}
+
+		function setTabbable(card, yes) {
+			card.querySelectorAll('a, button, [tabindex]').forEach(function (el) {
+				if (yes) {
+					if (el.hasAttribute('data-tp3d-tab')) {
+						var t = el.getAttribute('data-tp3d-tab');
+						if (t === '') el.removeAttribute('tabindex'); else el.setAttribute('tabindex', t);
+						el.removeAttribute('data-tp3d-tab');
+					}
+				} else if (!el.hasAttribute('data-tp3d-tab')) {
+					el.setAttribute('data-tp3d-tab', el.getAttribute('tabindex') || '');
+					el.setAttribute('tabindex', '-1');
+				}
+			});
+		}
+
+		function updateA11y() {
+			cards.forEach(function (c, i) {
+				var cur = !on || i === active;
+				c.classList.toggle('is-active', on && i === active);
+				if (on) {
+					c.setAttribute('aria-roledescription', 'slide');
+					c.setAttribute('aria-label', (i + 1) + ' of ' + n);
+				}
+				if (cur) c.removeAttribute('aria-hidden'); else c.setAttribute('aria-hidden', 'true');
+				setTabbable(c, cur);
+			});
+		}
+
+		// Same updates app.js makes on phones (dots + "01 / 03" counter)
+		function updateThemeUi() {
+			syncing = true;
+			dots.forEach(function (d, i) { d.setAttribute('data-active', i === active ? 'true' : 'false'); });
+			if (count) count.textContent = String(active + 1).padStart(2, '0');
+			syncing = false;
+		}
+
+		function go(i) {
+			active = ((i % n) + n) % n;
+			if (!on) return;
+			paint(active);
+			updateA11y();
+			updateThemeUi();
+		}
+
+		function enable() {
+			if (on) return;
+			on = true;
+			carousel.classList.add('tp3d-cf');
+			carousel.classList.toggle('tp3d-cf--fade', reduceMQ.matches);
+			if (controls) controls.classList.add('tp3d-cf-controls');
+			cards.forEach(function (c) { c.classList.add('tp3d-cf-card'); });
+			go(active);
+		}
+
+		function disable() {
+			if (!on) return;
+			on = false;
+			carousel.classList.remove('tp3d-cf', 'tp3d-cf--fade', 'is-dragging');
+			if (controls) controls.classList.remove('tp3d-cf-controls');
+			cards.forEach(function (c) {
+				c.classList.remove('tp3d-cf-card', 'is-active', 'is-lit');
+				c.style.removeProperty('--cf-d');
+				c.style.removeProperty('--cf-ad');
+				c.style.zIndex = '';
+				c.style.rotate = '';
+				c.removeAttribute('aria-roledescription');
+				c.removeAttribute('aria-label');
+			});
+			updateA11y();
+			// hand the phone slider back to the theme in a consistent state
+			track.scrollLeft = 0;
+			active = 0;
+			updateThemeUi();
+		}
+
+		function mode() { if (wideMQ.matches) enable(); else disable(); }
+		if (wideMQ.addEventListener) wideMQ.addEventListener('change', mode);
+		else if (wideMQ.addListener) wideMQ.addListener(mode);
+		mode();
+
+		// Controls
+		prev.addEventListener('click', function () { go(active - 1); });
+		next.addEventListener('click', function () { go(active + 1); });
+		// Dots: app.js also handles the click (it scrolls the phone track);
+		// on wide screens we move the coverflow.
+		dots.forEach(function (d, i) { d.addEventListener('click', function () { if (on) go(i); }); });
+		// If app.js changes the active dot itself, follow it.
+		if ('MutationObserver' in window) {
+			var mo = new MutationObserver(function () {
+				if (!on || syncing) return;
+				for (var i = 0; i < dots.length; i++) {
+					if (dots[i].getAttribute('data-active') === 'true' && i !== active) { go(i); break; }
+				}
+			});
+			dots.forEach(function (d) { mo.observe(d, { attributes: true, attributeFilter: ['data-active'] }); });
+		}
+
+		// Keyboard: left/right arrows anywhere inside the carousel
+		carousel.addEventListener('keydown', function (e) {
+			if (!on || e.altKey || e.ctrlKey || e.metaKey) return;
+			if (e.key === 'ArrowLeft') { e.preventDefault(); go(active - 1); }
+			else if (e.key === 'ArrowRight') { e.preventDefault(); go(active + 1); }
+		});
+
+		// Click on a side card brings it to the front (its links stay inactive)
+		track.addEventListener('click', function (e) {
+			if (!on) return;
+			if (suppressClick) { e.preventDefault(); e.stopPropagation(); suppressClick = false; return; }
+			var c = e.target.closest('[data-support-card]');
+			if (!c) return;
+			var i = cards.indexOf(c);
+			if (i !== active) { e.preventDefault(); e.stopPropagation(); go(i); }
+		}, true);
+
+		// Swipe (touch/pen) and drag (mouse) on wide screens
+		var startX = 0, startY = 0, dragging = false, pid = null, suppressClick = false, width = 1;
+		track.addEventListener('pointerdown', function (e) {
+			if (!on || (e.pointerType === 'mouse' && e.button !== 0)) return;
+			pid = e.pointerId;
+			startX = e.clientX;
+			startY = e.clientY;
+			dragging = false;
+			var c = cards[active];
+			width = c.offsetWidth * (parseFloat(getComputedStyle(root).getPropertyValue('--tp-cover-spread')) || 0.64);
+		});
+		track.addEventListener('pointermove', function (e) {
+			if (!on || e.pointerId !== pid) return;
+			var dx = e.clientX - startX, dy = e.clientY - startY;
+			if (!dragging) {
+				if (Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(dy)) return;
+				dragging = true;
+				carousel.classList.add('is-dragging');
+				try { track.setPointerCapture(pid); } catch (err) { /* ignore */ }
+			}
+			if (!reduceMQ.matches) paint(active - Math.max(-1, Math.min(1, dx / width)));
+		});
+		function endDrag(e) {
+			if (e.pointerId !== pid) return;
+			pid = null;
+			if (!dragging) return;
+			dragging = false;
+			suppressClick = true;
+			setTimeout(function () { suppressClick = false; }, 50);
+			carousel.classList.remove('is-dragging');
+			var dx = e.clientX - startX;
+			if (Math.abs(dx) > Math.min(90, width * 0.18)) go(active + (dx < 0 ? 1 : -1));
+			else paint(active);
+		}
+		track.addEventListener('pointerup', endDrag);
+		track.addEventListener('pointercancel', endDrag);
+		track.addEventListener('dragstart', function (e) { if (on) e.preventDefault(); });
+
+		// Active card: subtle cursor tilt + reflection (mouse only)
+		var rect = null, tx = 0, ty = 0, cx = 0, cy = 0, raf = 0, tiltCard = null;
+		function frame() {
+			cx += (tx - cx) * 0.14;
+			cy += (ty - cy) * 0.14;
+			var ang = Math.sqrt(cx * cx + cy * cy);
+			if (tiltCard) tiltCard.style.rotate = ang < 0.02 ? '' : cx.toFixed(3) + ' ' + cy.toFixed(3) + ' 0 ' + ang.toFixed(3) + 'deg';
+			if (Math.abs(tx - cx) > 0.01 || Math.abs(ty - cy) > 0.01) raf = requestAnimationFrame(frame);
+			else { raf = 0; if (!tx && !ty && tiltCard) { tiltCard.style.rotate = ''; tiltCard = null; } }
+		}
+		function kick() { if (!raf) raf = requestAnimationFrame(frame); }
+		cards.forEach(function (c) {
+			var glare = c.querySelector('.tp3d-cf-glare > span');
+			c.addEventListener('pointerenter', function (e) {
+				if (!on || !c.classList.contains('is-active') || !fineMQ.matches || reduceMQ.matches || e.pointerType !== 'mouse') return;
+				if (tiltCard && tiltCard !== c) tiltCard.style.rotate = '';
+				tiltCard = c;
+				rect = c.getBoundingClientRect();
+				c.classList.add('is-lit');
+			});
+			c.addEventListener('pointermove', function (e) {
+				if (!rect || tiltCard !== c || dragging) return;
+				var x = e.clientX - rect.left, y = e.clientY - rect.top;
+				var max = cssNum('--tp-cover-tilt', 5);
+				tx = -(y / rect.height - 0.5) * 2 * max;
+				ty = (x / rect.width - 0.5) * 2 * max;
+				var a = Math.sqrt(tx * tx + ty * ty);
+				if (a > max) { tx *= max / a; ty *= max / a; }
+				glare.style.transform = 'translate3d(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px,0)';
+				kick();
+			});
+			c.addEventListener('pointerleave', function () {
+				if (tiltCard !== c) return;
+				rect = null;
+				tx = ty = 0;
+				c.classList.remove('is-lit');
+				kick();
+			});
+		});
+		// a slide change ends any tilt on the card that just left the centre
+		carousel.addEventListener('click', function () {
+			if (tiltCard && !tiltCard.classList.contains('is-active')) { rect = null; tx = ty = 0; tiltCard.classList.remove('is-lit'); kick(); }
+		});
+
+		log('case studies coverflow:', n, 'cards');
+		return { carousel: carousel };
+	}
+
+	/* ==================================================================
 	   Boot
 	   ================================================================== */
 	function init() {
 		var wd = setupWhatDrives();
 		var cards = setupCards();
 		var sa = setupSixAreas();
+		var cs = setupCases();
 
-		if (!wd && !sa && !cards.svc.length && !cards.ns.length) {
+		if (!wd && !sa && !cs && !cards.svc.length && !cards.ns.length) {
 			status('skipped:no-sections');
 			return;
 		}

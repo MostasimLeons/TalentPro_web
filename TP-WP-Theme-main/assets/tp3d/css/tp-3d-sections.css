@@ -90,6 +90,26 @@
 	/* Premium card shadow (same family as the "What Drives" card). */
 	--tp-sa-shadow: 0 18px 40px -22px rgba(11, 21, 32, .55), 0 2px 8px -2px rgba(11, 21, 32, .14);
 	--tp-sa-shadow-lift: 0 34px 60px -26px rgba(11, 21, 32, .55), 0 6px 18px -6px rgba(11, 21, 32, .18);
+
+	/* ---- Case Studies coverflow (Phase 4, screens >= 768px) ------------ */
+	/* How far the side cards turn away. 0deg = flat row, 20–30deg = classic
+	   coverflow (default 25deg), 45deg+ = strong. */
+	--tp-cover-angle: 25deg;
+	/* How far the side cards sit behind the active card (translateZ).
+	   0px = same plane, 150–250px = gentle (default 200px), 400px+ = deep. */
+	--tp-cover-depth: 200px;
+	/* Slide change duration (500–700ms recommended); the easing next to it. */
+	--tp-cover-speed: 600ms;
+	--tp-cover-ease: cubic-bezier(.22, 1, .36, 1);
+	/* Active card width, and how far the neighbours are pushed out
+	   (fraction of the card width). */
+	--tp-cover-card-w: min(660px, 58vw);
+	--tp-cover-spread: .64;
+	/* Side cards: size and opacity (1 = same as the active card). */
+	--tp-cover-side-scale: .9;
+	--tp-cover-side-opacity: .55;
+	/* Cursor tilt on the active card, degrees (desktop mouse only). */
+	--tp-cover-tilt: 5;
 }
 
 /* ======================================================================
@@ -717,5 +737,309 @@ a[data-reveal="tile"] {
 		rotate: none !important;
 		translate: none !important;
 		transition-property: box-shadow;
+	}
+}
+
+
+/* ======================================================================
+   5. CASE STUDIES – premium cards + 3D coverflow (Phase 4)
+   Cards: [data-support-card] (theme). Phone (< 768px) keeps the theme's own
+   swipe slider (dots, counter, autoplay); only the card style changes there.
+   >= 768px: tp-3d-sections.js adds .tp3d-cf and drives the coverflow by
+   setting --cf-d (signed offset from the active card) and --cf-ad (|offset|)
+   on each card; everything visual is computed here.
+   ====================================================================== */
+
+/* Premium card style (all sizes). The theme sets the old colours inline. */
+[data-support-card] {
+	position: relative;
+	border-radius: var(--tp-card-radius);
+	background-color: #101818 !important;
+	background-image: linear-gradient(180deg, rgba(255, 255, 255, .05) 0%, rgba(255, 255, 255, 0) 30%);
+	box-shadow: var(--tp-sa-shadow);
+	overflow: hidden;
+}
+
+[data-support-card] > div:first-child {
+	background-color: transparent !important;
+}
+
+/* 1px light edge + top inner highlight, drawn above the photo */
+[data-support-card]::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	z-index: 3;
+	border-radius: inherit;
+	pointer-events: none;
+	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14), inset 0 1px 0 rgba(255, 255, 255, .18);
+}
+
+/* The theme's divider line and the AI icon on the photo are SVG files drawn in
+   the old coral (#DD523D / #CC5F44). This filter maps that coral to ~#00B0F3,
+   i.e. the logo blue #00ADEE (measured on a canvas). */
+img[src*="/case-studies/divider.svg"],
+img[src*="/case-studies/icon-gemini.svg"] {
+	filter: hue-rotate(187deg) saturate(1.5) brightness(1.2);
+}
+
+/* Learn More: visible focus ring on the dark card */
+[data-support-card] a:focus-visible {
+	outline: 2px solid var(--tp-accent, #00adee);
+	outline-offset: 3px;
+}
+
+/* Cursor reflection on the active card */
+.tp3d-cf-glare {
+	position: absolute;
+	inset: 0;
+	z-index: 2;
+	overflow: hidden;
+	border-radius: inherit;
+	pointer-events: none;
+}
+
+.tp3d-cf-glare > span {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 140%;
+	aspect-ratio: 1;
+	margin: -70% 0 0 -70%;
+	border-radius: 50%;
+	background: radial-gradient(circle, rgba(255, 255, 255, .10) 0%, rgba(255, 255, 255, 0) 55%);
+	opacity: 0;
+	transition: opacity .4s ease;
+}
+
+.tp3d-cf-card.is-lit .tp3d-cf-glare > span {
+	opacity: 1;
+}
+
+/* Inactive dots: the theme's #cfd6d5 is ~1.3:1 on the #f5f5f5 section;
+   #6f7b7b is ~4:1 (controls need >= 3:1). The active dot stays #0077B6. */
+[data-support-dot][data-active="false"] {
+	background-color: #6f7b7b;
+}
+
+/* Arrow buttons (added by JS next to the theme's dots) */
+.tp3d-cf-arrow {
+	display: none;
+	align-items: center;
+	justify-content: center;
+	width: 44px;
+	height: 44px;
+	padding: 0;
+	border: 1px solid rgba(16, 24, 24, .14);
+	border-radius: 50%;
+	background: #fff;
+	color: var(--tp-accent-ui, #0077b6);
+	cursor: pointer;
+	box-shadow: 0 6px 16px -10px rgba(11, 21, 32, .5);
+	transition: background-color .2s ease, color .2s ease;
+}
+
+.tp3d-cf-arrow svg {
+	width: 18px;
+	height: 18px;
+}
+
+.tp3d-cf-arrow:hover {
+	background: var(--tp-accent-ui, #0077b6);
+	color: #fff;
+}
+
+.tp3d-cf-arrow:focus-visible,
+.tp3d-cf [data-support-dot]:focus-visible {
+	outline: 2px solid var(--tp-accent-ui, #0077b6);
+	outline-offset: 3px;
+}
+
+/* ---------------- Coverflow, >= 768px ---------------- */
+@media (min-width: 768px) {
+	.tp3d-cf {
+		overflow: clip;                    /* side cards never cause sideways scroll */
+	}
+
+	.tp3d-cf [data-support-track] {
+		display: grid;
+		justify-items: center;
+		padding: 28px 0 44px;
+		perspective: 1800px;
+		perspective-origin: 50% 45%;
+		touch-action: pan-y;               /* vertical page scroll stays native */
+		cursor: grab;
+		-webkit-user-select: none;
+		        user-select: none;
+	}
+
+	.tp3d-cf.is-dragging [data-support-track] {
+		cursor: grabbing;
+	}
+
+	.tp3d-cf-card {
+		grid-area: 1 / 1;
+		width: var(--tp-cover-card-w);
+		min-height: 0 !important;
+		flex-direction: column !important;
+		--cf-dc: clamp(-1, var(--cf-d, 0), 1);
+		transform:
+			translate3d(calc(var(--cf-d, 0) * var(--tp-cover-card-w) * var(--tp-cover-spread)), 0, calc(var(--cf-ad, 0) * var(--tp-cover-depth) * -1))
+			rotateY(calc(var(--cf-dc) * var(--tp-cover-angle) * -1))
+			scale(calc(1 - min(var(--cf-ad, 0), 1) * (1 - var(--tp-cover-side-scale))));
+		opacity: max(0, calc(1 - var(--cf-ad, 0) * (1 - var(--tp-cover-side-opacity))));
+		transition:
+			transform var(--tp-cover-speed) var(--tp-cover-ease),
+			opacity var(--tp-cover-speed) var(--tp-cover-ease),
+			rotate .5s var(--tp-cover-ease),
+			box-shadow .4s ease;
+		-webkit-backface-visibility: hidden;
+		        backface-visibility: hidden;
+	}
+
+	.tp3d-cf.is-dragging .tp3d-cf-card {
+		transition: none;
+	}
+
+	.tp3d-cf-card.is-active {
+		box-shadow: var(--tp-sa-shadow-lift);
+	}
+
+	/* side cards: a click brings them to the front (handled in JS) */
+	.tp3d-cf-card:not(.is-active) {
+		cursor: pointer;
+	}
+
+	.tp3d-cf-card:not(.is-active) img {
+		scale: 1 !important;               /* no theme photo zoom on side cards */
+	}
+
+	/* layout inside the card: image on top, text below */
+	.tp3d-cf-card > div:last-of-type {
+		order: -1;
+		flex: none !important;
+		min-height: 0 !important;
+		height: auto !important;
+		aspect-ratio: 16 / 7;
+	}
+
+	.tp3d-cf-card > div:first-child {
+		flex: 1 1 auto !important;
+		align-items: flex-start !important;
+		padding: 24px 32px 30px !important;
+	}
+
+	.tp3d-cf-card > div:first-child > div {
+		gap: 18px;
+		max-width: none;
+	}
+
+	.tp3d-cf-card h3 {
+		font-size: 24px;
+		line-height: 1.25;
+		letter-spacing: -.02em;
+		padding-bottom: 12px;
+	}
+
+	.tp3d-cf-card h3 > span {
+		display: inline;                   /* title on one line where it fits */
+	}
+
+	.tp3d-cf-card h3 > span + span::before {
+		content: " ";
+	}
+
+	.tp3d-cf-card h3 + img {
+		margin-bottom: 14px;
+	}
+
+	.tp3d-cf-card p {
+		font-size: 15px;
+		line-height: 1.6;
+		padding-bottom: 16px;
+		max-width: none;
+	}
+
+	.tp3d-cf-card [data-reveal="pills"] > span {
+		font-size: 13px;
+		line-height: 1.4;
+		padding: 6px 14px;
+	}
+
+	.tp3d-cf-card a {
+		font-size: 15px;
+		padding: 14px 26px;
+	}
+
+	/* the theme's dots + counter row (phone-only before) becomes the control bar */
+	.tp3d-cf-controls {
+		display: flex !important;
+		align-items: center;
+		justify-content: center !important;
+		gap: 22px;
+		padding: 0 15px !important;
+	}
+
+	.tp3d-cf-controls [data-support-dot] {
+		height: 8px;
+		min-width: 8px;
+	}
+
+	.tp3d-cf-arrow {
+		display: inline-flex;
+	}
+
+	/* reduced motion: no 3D, no movement – the active card simply fades in */
+	.tp3d-cf--fade .tp3d-cf-card {
+		transform: none;
+		opacity: 0;
+		visibility: hidden;
+		transition: opacity var(--tp-cover-speed) ease, visibility 0s linear var(--tp-cover-speed);
+	}
+
+	.tp3d-cf--fade .tp3d-cf-card.is-active {
+		opacity: 1;
+		visibility: visible;
+		transition: opacity var(--tp-cover-speed) ease, visibility 0s;
+	}
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+	:root {
+		--tp-cover-card-w: 74vw;
+		--tp-cover-spread: .58;
+	}
+}
+
+/* ---------------- Phone: theme slider, one card at a time ---------------- */
+@media (max-width: 767px) {
+	[data-support-card] {
+		width: 100% !important;
+		border-radius: 18px;
+	}
+
+	[data-support-track] {
+		padding-bottom: 24px;               /* room for the card shadow */
+		column-gap: 15px;                   /* = side padding: the next card starts just off-screen */
+	}
+}
+
+@media (hover: none), (pointer: coarse) {
+	.tp3d-cf-glare {
+		display: none;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.tp3d-cf-glare {
+		display: none;
+	}
+
+	.tp3d-cf-card {
+		rotate: none !important;
+	}
+
+	.tp3d-cf-arrow {
+		transition: none;
 	}
 }
