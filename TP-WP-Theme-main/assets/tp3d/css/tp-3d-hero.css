@@ -1,0 +1,87 @@
+/*
+ * TalentPro 3D layer – Phase 1: Hero (v2)
+ * Design-only. Every rule is scoped to classes that tp-3d-hero.js adds at
+ * runtime, so without JS (or with this file removed) the hero is unchanged.
+ * Accent colour comes from --tp-accent (defined in tp-3d-colors.css).
+ *
+ * Layer order inside the hero's existing aria-hidden background div:
+ *   photo  →  dark overlay  →  glow  →  canvas      (then the text, above all)
+ */
+
+.tp3d-hero .tp3d-hero__bg {
+	will-change: transform;
+}
+
+.tp3d-hero .tp3d-hero__img {
+	transform: scale(1.1);               /* bleed so parallax never shows an edge */
+	transform-origin: 50% 40%;
+	will-change: transform;
+	backface-visibility: hidden;
+}
+
+.tp3d-hero__canvas {
+	position: absolute;
+	inset: 0;
+	z-index: 1;
+	width: 100%;
+	height: 100%;
+	display: block;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 1.4s cubic-bezier(.22, 1, .36, 1);
+	/* slightly calmer behind the headline, full strength everywhere else */
+	-webkit-mask-image: radial-gradient(ellipse 55% 40% at 50% 38%, rgba(0, 0, 0, .6) 0%, #000 100%);
+	        mask-image: radial-gradient(ellipse 55% 40% at 50% 38%, rgba(0, 0, 0, .6) 0%, #000 100%);
+}
+
+.tp3d-hero__canvas.is-ready {
+	opacity: 1;
+}
+
+/* Soft accent glow that follows the pointer */
+.tp3d-hero__glow {
+	position: absolute;
+	left: 0;
+	top: 0;
+	z-index: 1;
+	width: 42vmax;
+	height: 42vmax;
+	margin: -21vmax 0 0 -21vmax;
+	border-radius: 50%;
+	pointer-events: none;
+	background: radial-gradient(circle, color-mix(in srgb, var(--tp-accent, #00ADEE) 30%, transparent) 0%, transparent 62%);
+	mix-blend-mode: screen;
+	opacity: 0;
+	transition: opacity .8s ease;
+	will-change: transform;
+}
+
+.tp3d-hero.is-pointer .tp3d-hero__glow {
+	opacity: .7;
+}
+
+/* Mobile: no WebGL, no pointer effects */
+@media (max-width: 767px) {
+	.tp3d-hero__canvas,
+	.tp3d-hero__glow {
+		display: none;
+	}
+
+	.tp3d-hero .tp3d-hero__img {
+		transform: scale(1.04);
+	}
+}
+
+/* Reduced motion: the whole layer is off */
+@media (prefers-reduced-motion: reduce) {
+	.tp3d-hero__canvas,
+	.tp3d-hero__glow {
+		display: none !important;
+	}
+
+	.tp3d-hero .tp3d-hero__bg,
+	.tp3d-hero .tp3d-hero__img {
+		transform: none !important;
+		will-change: auto;
+	}
+}

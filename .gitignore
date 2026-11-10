@@ -1,0 +1,51 @@
+# --- WordPress config & secrets -------------------------------------------
+wp-config.php
+wp-config-*.php
+!wp-config-sample.php
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+id_rsa*
+id_ed25519*
+auth.json
+credentials*.json
+secrets*.json
+*.secret
+.htpasswd
+.npmrc
+.pypirc
+
+# --- WordPress runtime / uploads / backups --------------------------------
+uploads/
+wp-content/uploads/
+wp-content/cache/
+wp-content/upgrade/
+wp-content/backup*/
+wp-content/debug.log
+*.sql
+*.sql.gz
+*.log
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# --- Tooling ----------------------------------------------------------------
+node_modules/
+__pycache__/
+*.pyc
+.claude/settings.local.json
+.claude/launch.json
+
+# --- OS / editor ------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
