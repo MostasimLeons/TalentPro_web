@@ -81,10 +81,19 @@
 	   ================================================================== */
 	var range = document.createRange();
 
+	function isDesktop() {
+		return window.innerWidth >= 1024;
+	}
+
 	function panelPad() {
 		var w = window.innerWidth;
+		if (w >= 1024) {
+			// desktop side padding comes from --tp-card-pad-x (also used by the CSS text width)
+			var px = parseFloat(getComputedStyle(root).getPropertyValue('--tp-card-pad-x'));
+			return [36, isNaN(px) ? 40 : px];
+		}
 		// [vertical, horizontal]; mobile side pad stays < the theme's 15px gutter so the panel never touches the screen edge
-		return w < 768 ? [14, 11] : w < 1024 ? [26, 28] : [36, 40];
+		return w < 768 ? [14, 11] : [26, 28];
 	}
 
 	function sizePanel(text, panel) {
@@ -121,7 +130,8 @@
 		var p = panelPad();
 		panel.style.left = (minL - p[1]).toFixed(1) + 'px';
 		panel.style.top = (minT - p[0]).toFixed(1) + 'px';
-		panel.style.width = (maxR - minL + p[1] * 2).toFixed(1) + 'px';
+		// desktop: width = --tp-card-width (CSS); smaller screens: hug the text
+		panel.style.width = isDesktop() ? '' : (maxR - minL + p[1] * 2).toFixed(1) + 'px';
 		panel.style.height = (maxB - minT + p[0] * 2).toFixed(1) + 'px';
 		panel.classList.add('is-sized');
 	}

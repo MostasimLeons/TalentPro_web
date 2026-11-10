@@ -16,10 +16,33 @@
 	/* Max card tilt in degrees. 0 = off, 6–8 = subtle (default 7), 12+ = strong. */
 	--tp-tilt-max: 7;
 
-	/* Glass blur behind the "What Drives" text panel. Higher = frostier and more
-	   GPU work (it blurs the playing video). 0px = no blur. */
-	--tp-card-blur: 14px;
+	/* ---- "What Drives" slides ---- */
+	/* Card width on desktop (>= 1024px), measured from the card's left edge.
+	   The slide is full width, so 58vw = 58% of the section. Lower it to show
+	   more video; the headline and paragraph wrap to fit inside. */
+	--tp-card-width: 58vw;
+	--tp-card-pad-x: 40px;             /* inner side padding of the card on desktop */
+
+	/* Glass blur behind the card text. Higher = frostier (and more GPU work, it
+	   blurs the playing video). 0px = no blur. */
+	--tp-card-blur: 6px;
 	--tp-card-blur-mobile: 6px;
+
+	/* Card fill. A cool, see-through tint: raise the last value (alpha) for more
+	   legibility, lower it to see more video.
+	   Contrast was measured on every video frame (0.5 s steps, brightest pixel
+	   behind each text line). With overlay .70, .50 is the lowest tint that
+	   keeps ALL card text >= 4.5:1 (.52 adds a small margin). At .35 the paragraph drops to ~2.9:1 on
+	   slides 1 and 3. */
+	--tp-card-tint: rgba(11, 21, 32, .52);
+	/* Same, for screens >= 1540px. The video is scaled up there, so a brighter
+	   patch lands behind the headline on slide 1; .57 is the lowest that passes. */
+	--tp-card-tint-wide: rgba(11, 21, 32, .57);
+
+	/* Soft dark gradient on the video, only behind the card (0 = none, 1 = strong);
+	   it fades out shortly after the card's right edge. Works together with the
+	   tint above: lowering either one drops contrast below 4.5:1. */
+	--tp-overlay-strength: .70;
 
 	/* Thin light edge on all glass cards. Raise the alpha (e.g. .35) for a
 	   brighter edge, lower it (e.g. .10) for a fainter one. */
@@ -53,18 +76,82 @@
 	border-radius: 22px;
 	border: var(--tp-card-border);
 	background:
-		linear-gradient(180deg, rgba(255, 255, 255, .09) 0%, rgba(255, 255, 255, 0) 38%),
-		linear-gradient(100deg, rgba(16, 24, 24, .46) 0%, rgba(16, 24, 24, .30) 55%, rgba(16, 24, 24, .16) 100%);
-	-webkit-backdrop-filter: blur(var(--tp-card-blur)) saturate(1.15);
-	        backdrop-filter: blur(var(--tp-card-blur)) saturate(1.15);
+		linear-gradient(180deg, rgba(255, 255, 255, .07) 0%, rgba(255, 255, 255, 0) 35%),
+		var(--tp-card-tint);
+	-webkit-backdrop-filter: blur(var(--tp-card-blur)) saturate(1.1);
+	        backdrop-filter: blur(var(--tp-card-blur)) saturate(1.1);
 	box-shadow:
-		0 30px 60px -30px rgba(0, 0, 0, .55),
-		inset 0 1px 0 rgba(255, 255, 255, .14);
+		0 24px 50px -30px rgba(0, 0, 0, .45),
+		inset 0 1px 0 rgba(255, 255, 255, .16);
 	opacity: 0;                        /* shown once JS has measured it */
 }
 
 .tp3d-wd-glass.is-sized {
 	opacity: 1;
+}
+
+/* Video overlay: the theme's heavy teal gradient becomes a light, cool one that
+   only darkens the area behind the card. */
+.tp3d-wd .wd-slide > div[aria-hidden="true"] {
+	background: linear-gradient(90deg,
+		rgba(11, 21, 32, calc(.85 * var(--tp-overlay-strength))) 0%,
+		rgba(11, 21, 32, calc(.70 * var(--tp-overlay-strength))) calc(var(--tp-card-width) * .75),
+		rgba(11, 21, 32, 0) calc(var(--tp-card-width) + 12vw));
+}
+
+/* Readability over bright frames (very soft, no visible halo) */
+.tp3d-wd .wd-text > h3 {
+	text-shadow: 0 1px 2px rgba(0, 0, 0, .28), 0 4px 22px rgba(0, 0, 0, .22);
+}
+
+.tp3d-wd .wd-text > :not(h3):not(.tp3d-wd-glass) {
+	text-shadow: 0 1px 2px rgba(0, 0, 0, .30), 0 2px 12px rgba(0, 0, 0, .20);
+}
+
+@media (min-width: 1024px) {
+	/* card: fixed share of the slide, anchored left (JS sets left/top/height) */
+	.tp3d-wd-glass {
+		width: var(--tp-card-width);
+	}
+
+	/* headline wraps inside the card (the paragraph keeps the theme's 420px) */
+	.tp3d-wd .wd-text > h3 {
+		max-width: calc(var(--tp-card-width) - 2 * var(--tp-card-pad-x));
+	}
+}
+
+/* Video spans the whole slide on desktop as well (the theme already does this
+   below 1350px), so there is no flat colour block on the left. */
+@media (min-width: 1350px) {
+	.tp3d-wd .wd-slide > video {
+		left: 0;
+		width: 100%;
+	}
+
+	/* headline about 20% smaller: 71.5px -> 57px */
+	.tp3d-wd .wd-text > h3 {
+		font-size: 57px;
+	}
+}
+
+@media (min-width: 1540px) {
+	/* 85px -> 68px */
+	.tp3d-wd .wd-text > h3 {
+		font-size: 68px;
+	}
+
+	.tp3d-wd-glass {
+		background:
+			linear-gradient(180deg, rgba(255, 255, 255, .07) 0%, rgba(255, 255, 255, 0) 35%),
+			var(--tp-card-tint-wide);
+	}
+}
+
+/* Tablet and phone: the text spans the slide, so use an even, light veil */
+@media (max-width: 1023px) {
+	.tp3d-wd .wd-slide > div[aria-hidden="true"] {
+		background: rgba(11, 21, 32, calc(.75 * var(--tp-overlay-strength)));
+	}
 }
 
 /* the theme's slide-change text animation must not hit the panel; JS fades it */
