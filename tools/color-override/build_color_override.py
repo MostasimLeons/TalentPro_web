@@ -11,6 +11,7 @@ rule wins at the same specificity while hover/focus variants keep their order.
 Usage:  python -I build_color_override.py <tailwind.css> <out.css>
 Re-run it whenever the theme's tailwind.css is rebuilt.
 """
+import os
 import re
 import sys
 
@@ -119,6 +120,10 @@ def main(src, dst):
         "/* Inline-style gradient on the 'Solve. Build. Operate.' cards (style attribute in the template) */\n"
         "[style*=\"#062826\"][style*=\"#0f5d59\"]{background-image:linear-gradient(0deg,#101818 0%,#1e2b2b 100%)!important}\n"
     )
+    # Hand-written additions kept next to this script (header nav states etc.)
+    manual = os.path.join(os.path.dirname(os.path.abspath(__file__)), "nav-states.css")
+    if os.path.exists(manual):
+        extra += open(manual, encoding="utf-8").read()
     with open(dst, "w", encoding="utf-8", newline="\n") as f:
         f.write(header + (layer_stmt.group(1) + "\n" if layer_stmt else "") + body + extra)
     print("rules written:", body.count("{") - body.count("@"), "bytes:", len(header) + len(body) + len(extra))

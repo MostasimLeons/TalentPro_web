@@ -1,0 +1,106 @@
+
+/* ======================================================================
+   Header nav states (hand-written; appended by build_color_override.py)
+   Scope: #primary-menu top-level items + Solutions submenu only.
+   The "Get Discovery Call" button is outside #primary-menu and unchanged.
+   Measured contrast (worst case = header over a white section):
+     hover   white on tint           8.8:1
+     current #00ADEE on tint+base    5.1:1  (without the base it would be 3.6:1)
+     pressed white on #0077B6        4.9:1
+   ====================================================================== */
+:root {
+	--tp-nav-accent: #00adee;                     /* current text, thin border, focus outline */
+	--tp-nav-hover-bg: rgba(0, 173, 238, .14);    /* hover pill (logo blue at 14%) */
+	--tp-nav-hover-text: #ffffff;
+	--tp-nav-current-bg: rgba(0, 173, 238, .12);  /* current-page pill tint */
+	--tp-nav-current-base: rgba(16, 24, 24, .70); /* dark underlay under the current pill; keeps
+	                                                 #00ADEE text >= 4.5:1 when the see-through header
+	                                                 passes over white sections. Lower it and
+	                                                 contrast drops. */
+	--tp-nav-pressed-bg: #0077b6;
+	--tp-nav-pressed-text: #ffffff;
+	--tp-nav-speed: 150ms;                        /* state transition (120–180ms) */
+	--tp-nav-sub-pad: 8px;                        /* how far the submenu pill extends around the text */
+}
+
+/* ---- top level: Home, About Us, Solutions, Services, Portfolio, Contact ---- */
+#primary-menu > .menu-item > a {
+	transition: background-color var(--tp-nav-speed) ease, color var(--tp-nav-speed) ease, box-shadow var(--tp-nav-speed) ease;
+}
+
+#primary-menu > .menu-item > a:is(:hover, :focus) {
+	background: var(--tp-nav-hover-bg);           /* replaces the theme's gray pill */
+	color: var(--tp-nav-hover-text);
+}
+
+#primary-menu > :is(.current-menu-item, .current-menu-ancestor, .current-menu-parent, .current_page_item, .current_page_parent, .current_page_ancestor) > a,
+#primary-menu > :is(.current-menu-item, .current-menu-ancestor, .current-menu-parent, .current_page_item, .current_page_parent, .current_page_ancestor) > a:is(:hover, :focus) {
+	background: linear-gradient(var(--tp-nav-current-bg), var(--tp-nav-current-bg)), var(--tp-nav-current-base);
+	color: var(--tp-nav-accent);
+	box-shadow: inset 0 0 0 1px var(--tp-nav-accent); /* border without changing the pill size */
+}
+
+#primary-menu > .menu-item > a:active,
+#primary-menu > .menu-item > a:active:is(:hover, :focus) {
+	background: var(--tp-nav-pressed-bg);
+	color: var(--tp-nav-pressed-text);
+	box-shadow: none;
+}
+
+/* ---- Solutions submenu items ----
+   The pill is painted with background + a same-colour box-shadow ring, so it
+   extends around the text without changing any spacing. */
+#primary-menu .sub-menu .menu-item > a {
+	border-radius: 8px;
+	transition: color var(--tp-nav-speed) ease, background-color var(--tp-nav-speed) ease, box-shadow var(--tp-nav-speed) ease, padding-left .3s ease-out;
+}
+
+#primary-menu .sub-menu .menu-item > a::after {
+	background-color: var(--tp-nav-accent);       /* the small sliding bar */
+}
+
+#primary-menu .sub-menu .menu-item > a:is(:hover, :focus) {
+	color: var(--tp-nav-hover-text);
+	background: var(--tp-nav-hover-bg);
+	box-shadow: 0 0 0 var(--tp-nav-sub-pad) var(--tp-nav-hover-bg);
+}
+
+#primary-menu .sub-menu :is(.current-menu-item, .current_page_item) > a,
+#primary-menu .sub-menu :is(.current-menu-item, .current_page_item) > a:is(:hover, :focus) {
+	color: var(--tp-nav-accent);
+	background: linear-gradient(var(--tp-nav-current-bg), var(--tp-nav-current-bg)), var(--tp-nav-current-base);
+	box-shadow: 0 0 0 var(--tp-nav-sub-pad) var(--tp-nav-current-bg), 0 0 0 var(--tp-nav-sub-pad) var(--tp-nav-current-base);
+	outline: 1px solid var(--tp-nav-accent);      /* thin border around the extended pill */
+	outline-offset: var(--tp-nav-sub-pad);
+}
+
+#primary-menu .sub-menu .menu-item > a:active,
+#primary-menu .sub-menu .menu-item > a:active:is(:hover, :focus) {
+	color: var(--tp-nav-pressed-text);
+	background: var(--tp-nav-pressed-bg);
+	box-shadow: 0 0 0 var(--tp-nav-sub-pad) var(--tp-nav-pressed-bg);
+	outline: 0;
+}
+
+/* mobile submenu icon chips (theme used the CTA colour here) */
+#primary-menu .sub-menu a:is(:hover, :focus, :active) > span:first-child,
+#primary-menu .sub-menu :is(.current-menu-item, .current_page_item) > a > span:first-child {
+	background-color: var(--tp-nav-hover-bg);
+	color: var(--tp-nav-accent);
+}
+
+/* ---- keyboard focus ---- */
+#primary-menu a:focus-visible {
+	outline: 2px solid var(--tp-nav-accent);
+	outline-offset: 2px;
+}
+
+#primary-menu .sub-menu .menu-item > a:focus-visible {
+	outline-offset: calc(var(--tp-nav-sub-pad) + 2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	#primary-menu a {
+		transition-duration: 0s !important;
+	}
+}
